@@ -26,6 +26,16 @@ case class Dog(name: String) extends Animal {
 
 object scala_test {
 
+  def fac(x: Int): Int = {
+    @annotation.tailrec
+    def go(acc: Int, x: Int): Int = x match {
+      case 0 => acc
+      case i => go(acc * x, x - 1)
+    }
+
+    go(1, x)
+  }
+
   def lists(): Unit = {
     println("lists\n")
     val fl =  List(1,0,0,1,0,1).foldLeft(List[Int]())(
@@ -67,6 +77,7 @@ object scala_test {
 
     greet(Cat("Fiz"))
 
+    println(s"Factorial: ${fac(4)}")
     println(TList(1,2))
   }
 }
