@@ -62,6 +62,22 @@ object scala_test {
   // multiplte parameter lists
   def f(x: Int)(y: Int): Int = x * y
 
+  def easyExamples(): Unit = {
+    lists()
+    maps()
+    val mulByThree: Int => Int = f(3)
+    val x = 5
+    println(s"3 * $x: ${mulByThree(x)}")
+
+    def greet(animal: Animal) = animal match {
+      case Cat(name) => s"Hello $name"
+      case Dog(name) => s"Greetings $name"
+    }
+    greet(Cat("Fiz"))
+    println(s"Factorial: ${fac(4)}")
+    println(TList(1,2))
+  }
+
   private[this] val xa = DriverManagerTransactor[Task](
     "org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "", ""
   )
@@ -94,23 +110,9 @@ object scala_test {
   def printRet[A](r: A): Unit = r match {
       case \/-(l) => println(s"Success: $l")
       case -\/(error) => println(s"Failure: $error")
-    }
+  }
 
   def main(args: Array[String]): Unit = {
-    //lists()
-    //maps()
-    val mulByThree: Int => Int = f(3)
-    val x = 5
-    // println(s"3 * $x: ${mulByThree(x)}")
-
-    def greet(animal: Animal) = animal match {
-      case Cat(name) => s"Hello $name"
-      case Dog(name) => s"Greetings $name"
-    }
-    // greet(Cat("Fiz"))
-    // println(s"Factorial: ${fac(4)}")
-    // println(TList(1,2))
-
     createSchema()
     //createSchema()
     createTables() match {
