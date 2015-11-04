@@ -1,5 +1,8 @@
 import scalaz._
 import Scalaz._
+import scalaz.concurrent.Task
+import doobie.imports._
+import java.sql.SQLException
 
 sealed trait TList[+A]
 case object TNil extends TList[Nothing]
@@ -25,7 +28,6 @@ case class Dog(name: String) extends Animal {
 }
 
 object scala_test {
-
   def fac(x: Int): Int = {
     @annotation.tailrec
     def go(acc: Int, x: Int): Int = x match {
@@ -60,24 +62,68 @@ object scala_test {
   // multiplte parameter lists
   def f(x: Int)(y: Int): Int = x * y
 
+  private[this] val xa = DriverManagerTransactor[Task](
+    "org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "", ""
+  )
+
+  def createSchema(): Int =
+    sql"CREATE SCHEMA TESTDB".update.run.transact(xa).run
+
+  def createTables() =
+    (List(
+      sql"""CREATE TABLE IF NOT EXISTS TESTDB.TEST1(TEST VARCHAR(5) NOT NULL, VALUE DOUBLE NOT NULL, PRIMARY KEY (TEST, VALUE))""",
+      sql"""CREATE TABLE IF NOT EXISTS TESTDB.TEST2(TEST VARCHAR(5) NOT NULL, VALUE DOUBLE NOT NULL, PRIMARY KEY (TEST, VALUE))"""
+    ).traverseU(_.update.run): ConnectionIO[List[Int]]).attemptSql.transact(xa).run
+
+  def insertData(data: Map[String, Double]): \/[SQLException, List[Int]] = {
+    def buildStatement(test: String, value: Double) =
+      sql"""INSERT INTO TESTDB.TEST1 (TEST, VALUE) VALUES ($test, $value)"""
+
+    (data.map{
+        case (test, value) => buildStatement(test, value)
+      }.toList.traverseU(_.update.run): ConnectionIO[List[Int]]
+    ).attemptSql.transact(xa).run
+  }
+
+  case class TestData(test: String, value: Double)
+
+  def selectData = {
+    sql"SELECT TEST, VALUE FROM TESTDB.TEST1".query[TestData].list.transact(xa).attemptSql.run
+  }
+
+  def printRet[A](r: A): Unit = r match {
+      case \/-(l) => println(s"Success: $l")
+      case -\/(error) => println(s"Failure: $error")
+    }
+
   def main(args: Array[String]): Unit = {
-    println("Hello World!")
-
-    lists()
-    maps()
-
+    //lists()
+    //maps()
     val mulByThree: Int => Int = f(3)
     val x = 5
-    println(s"3 * $x: ${mulByThree(x)}")
+    // println(s"3 * $x: ${mulByThree(x)}")
 
     def greet(animal: Animal) = animal match {
       case Cat(name) => s"Hello $name"
       case Dog(name) => s"Greetings $name"
     }
+    // greet(Cat("Fiz"))
+    // println(s"Factorial: ${fac(4)}")
+    // println(TList(1,2))
 
-    greet(Cat("Fiz"))
+    createSchema()
+    //createSchema()
+    createTables() match {
+      case \/-(l) => println("Successfull SQL statements: " + l.size)
+      case -\/(error) => println(error)
+    }
 
-    println(s"Factorial: ${fac(4)}")
-    println(TList(1,2))
+    val add1 = insertData(Map("test1" -> 2, "test2" -> 10000))
+    printRet(add1)
+
+    val add2 = insertData(Map("test12345" -> 2, "test2" -> 10000))
+    printRet(add2)
+
+    printRet(selectData)
   }
 }
