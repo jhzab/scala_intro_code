@@ -27,6 +27,8 @@ case class Dog(name: String) extends Animal {
   def printName(): String = s"Name is $name"
 }
 
+case class TestData(test: String, value: Double)
+
 object scala_test {
   def fac(x: Int): Int = {
     @annotation.tailrec
@@ -101,9 +103,13 @@ object scala_test {
     ).attemptSql.transact(xa).run
   }
 
-  case class TestData(test: String, value: Double)
+  def insertMany(data: List[TestData]): \/[SQLException, Int] = {
+    val sql = "INSERT INTO TESTDB.TEST1 (TEST, VALUE) VALUES (?, ?)"
 
-  def selectData = {
+    Update[TestData](sql).updateMany(data).attemptSql.transact(xa).run
+  }
+
+  def selectData() = {
     sql"SELECT TEST, VALUE FROM TESTDB.TEST1".query[TestData].list.transact(xa).attemptSql.run
   }
 
@@ -112,20 +118,30 @@ object scala_test {
       case -\/(error) => println(s"Failure: $error")
   }
 
+  def updateData() = {
+    val sql = sql"""UPDATE TESTDB.TEST1 SET VALUE = 123 WHERE VALUE IS 2"""
+
+    sql.update.withGeneratedKeys[TestData]("test", "value").list.transact(xa).run
+  }
+
   def main(args: Array[String]): Unit = {
     createSchema()
     //createSchema()
-    createTables() match {
-      case \/-(l) => println("Successfull SQL statements: " + l.size)
-      case -\/(error) => println(error)
-    }
+    printRet(createTables())
 
-    val add1 = insertData(Map("test1" -> 2, "test2" -> 10000))
-    printRet(add1)
+    val insert1 = insertData(Map("test1" -> 2, "test2" -> 10000))
+    printRet(insert1)
 
-    val add2 = insertData(Map("test12345" -> 2, "test2" -> 10000))
-    printRet(add2)
+    val insert2 = insertData(Map("test3" -> 23, "testTooLong" -> 10000, "test4" -> 1))
+    printRet(insert2)
 
+    val data = Map("test5" -> 5, "test6TooLong" -> 6, "test7" -> 7)
+
+    val insert3 = insertMany(data.map{ case (k,v) => TestData(k, v) }.toList)
+    printRet(insert3)
+
+    printRet(selectData)
+    print(updateData)
     printRet(selectData)
   }
 }
