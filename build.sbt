@@ -12,6 +12,7 @@ libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.1.4"
 resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 libraryDependencies += "org.http4s" %% "http4s-dsl"          % "0.10.1"
 libraryDependencies += "org.http4s" %% "http4s-blaze-server" % "0.10.1"
+libraryDependencies += "org.http4s" %% "http4s-blaze-client" % "0.10.1"
 resolvers ++= Seq(
     "tpolecat" at "http://dl.bintray.com/tpolecat/maven",
       "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"

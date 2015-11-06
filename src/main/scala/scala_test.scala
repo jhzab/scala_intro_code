@@ -4,12 +4,29 @@ import scalaz.concurrent.Task
 import doobie.imports._
 import java.sql.SQLException
 import scala.concurrent.{Future, Await}
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
+
+//import org.http4s._
+import org.http4s.dsl._
+import org.http4s.server.HttpService
+import org.http4s.server.blaze.BlazeBuilder
+import org.http4s.headers.`Content-Type`
+import org.http4s.MediaType._
 
 sealed trait TList[+A]
 case object TNil extends TList[Nothing]
 case class TCons[+A](head: A, tail: TList[A]) extends TList[A]
+
+object RESTApi {
+  def service(implicit executionContext: ExecutionContext) =
+    HttpService {
+      case req @ GET -> Root / "ping" =>
+        Ok(s"pong. Parameters: ${req.params}")
+          .putHeaders(`Content-Type`(`text/plain`))
+    }
+}
 
 object TList {
   def apply[A](as: A*): TList[A] = as match {
@@ -144,6 +161,16 @@ object scala_test {
   }
 
   def main(args: Array[String]): Unit = {
+    def startWebServer(): Unit = {
+      BlazeBuilder.bindHttp(8080)
+        .mountService(RESTApi.service, "/")
+        .run
+        .awaitShutdown()
+    }
+
+    args.toList match {
+      case x::xs if x == "http4s" => startWebServer()
+    }
     // Future
     val futureTest = for { a <- f(100); b <- f(300) } yield a + b
     Await.result(futureTest, Duration.Inf)
@@ -190,4 +217,24 @@ sql"CREATE SCHEMA IF NOT EXISTS TESTDB".update.run.transact(xa).run
 sql"""CREATE TABLE IF NOT EXISTS TESTDB.TEST1(TEST VARCHAR(5) NOT NULL, VALUE DOUBLE NOT NULL, PRIMARY KEY (TEST, VALUE))""".update.run.transact(xa).run
 sql"""INSERT INTO TESTDB.TEST1 (TEST, VALUE) VALUES ('test1', 42)""".update.run.transact(xa).run
 sql"SELECT TEST, VALUE FROM TESTDB.TEST1".query[(String, Double)].list.transact(xa).run
+
+
+
+HTTP4S
+
+import org.http4s.Http4s._
+import scalaz.concurrent.Task
+import org.http4s.Status.NotFound
+import org.http4s.Status.ResponseClass.Redirection
+import org.http4s.Status.ResponseClass.Successful
+
+val client = org.http4s.client.blaze.defaultClient
+val ret = client(uri("https://www.google.com/")).flatMap {
+  case Successful(resp) => resp.as[String].map("Response: " + _)
+  case NotFound(resp)   => Task.now("Not Found!")
+  case Redirection(resp) => resp.as[String].map("Redirect resp: " + _)
+}
+
+ret.run
+ 
  */
