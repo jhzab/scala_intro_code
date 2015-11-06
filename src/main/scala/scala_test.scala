@@ -169,6 +169,7 @@ object scala_test {
     }
 
     args.toList match {
+      case Nil => println("Not starting webserver.")
       case x::xs if x == "http4s" => startWebServer()
     }
     // Future
