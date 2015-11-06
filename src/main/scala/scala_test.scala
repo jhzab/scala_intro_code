@@ -3,6 +3,9 @@ import Scalaz._
 import scalaz.concurrent.Task
 import doobie.imports._
 import java.sql.SQLException
+import scala.concurrent.{Future, Await}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 sealed trait TList[+A]
 case object TNil extends TList[Nothing]
@@ -62,12 +65,12 @@ object scala_test {
   }
 
   // multiplte parameter lists
-  def f(x: Int)(y: Int): Int = x * y
+  def fparam(x: Int)(y: Int): Int = x * y
 
   def easyExamples(): Unit = {
     lists()
     maps()
-    val mulByThree: Int => Int = f(3)
+    val mulByThree: Int => Int = fparam(3)
     val x = 5
     println(s"3 * $x: ${mulByThree(x)}")
 
@@ -124,7 +127,36 @@ object scala_test {
     sql.update.withGeneratedKeys[TestData]("test", "value").list.transact(xa).run
   }
 
+  def f(x: Int):Future[Int] = Future {
+    if (x > 0 && x < 1000) {
+      Thread.sleep(x)
+      x
+    } else
+      0
+  }
+
+  def g(x: Int): Future[Option[Int]] = Future {
+    x match {
+      case x if x < 0 => none
+      case x if x > 1000 => some(x)
+      case x => Thread.sleep(x); some(x)
+    }
+  }
+
   def main(args: Array[String]): Unit = {
+    // Future
+    val futureTest = for { a <- f(100); b <- f(300) } yield a + b
+    Await.result(futureTest, Duration.Inf)
+
+    val optionTTest = for {
+      a <- OptionT(g(300));
+      b <- OptionT(g(2000));
+      c <- OptionT(g(-1))
+    } yield a + b + c
+
+    Await.result(optionTTest.run, Duration.Inf)
+
+
     createSchema()
     //createSchema()
     printRet(createTables())
@@ -145,3 +177,17 @@ object scala_test {
     printRet(selectData)
   }
 }
+
+/*
+// DOOBIE
+ 
+import scalaz._
+import Scalaz._
+import scalaz.concurrent.Task
+import doobie.imports._
+val xa = DriverManagerTransactor[Task]("org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "", "")
+sql"CREATE SCHEMA IF NOT EXISTS TESTDB".update.run.transact(xa).run
+sql"""CREATE TABLE IF NOT EXISTS TESTDB.TEST1(TEST VARCHAR(5) NOT NULL, VALUE DOUBLE NOT NULL, PRIMARY KEY (TEST, VALUE))""".update.run.transact(xa).run
+sql"""INSERT INTO TESTDB.TEST1 (TEST, VALUE) VALUES ('test1', 42)""".update.run.transact(xa).run
+sql"SELECT TEST, VALUE FROM TESTDB.TEST1".query[(String, Double)].list.transact(xa).run
+ */
